@@ -177,8 +177,14 @@ OK
     - ディレクトリ一覧
     - シェル実行（プロジェクト配下）
     を実行できるようにしました。`prompt_toolkit` があれば履歴（↑↓）も有効。
-  - 追加対応: `llama_cpp` のみが利用可能な環境では、フォールバック CLI の `chat` がローカルモデルによる応答を返します。
+ - 追加対応: `llama_cpp` のみが利用可能な環境では、フォールバック CLI の `chat` がローカルモデルによる応答を返します。
   - 本番運用: 依存をインストールすれば（`pip install -r requirements.txt`）、LangChain エージェントが自然言語から自動的に「検索→要約」「コード生成→実行」「エラー修正」を行います。
+
+5.2) Edit.ApplyPatch フッター拡張
+- 変更適用のフッタJSONに以下を追加しました:
+  - `strategy: "unified_diff"`
+  - `hunks: [{a_start,a_count,b_start,b_count}]`
+  - 既存の `mode/path/hash_after/lines_added/lines_removed` と併せて、コミットメッセージ生成や追跡に活用できます。
 
 8) 重要な注意点
 - ネットワークが制限されている環境では `WebSearch` が失敗する可能性があります。その場合は結果が空、もしくはフォールバックメッセージになります。
@@ -224,11 +230,23 @@ python3 -m src.cli_tool divide 1 0   # エラー終了
   - `tools/gemini_cli.py` から `gemini -p "..."` を呼び出すツール `Gemini` を登録
   - 例: `./gpt-code -p "今日のニュースを要約して"` または REPL で `今日のニュースを教えて`
   - 注意: ローカルに `gemini` コマンドが必要です（PATH, APIキー設定など）
-- MCP 連携
+ - MCP 連携
   - `utils/mcp_client.py` を使った `MCP.Query` ツールを登録
   - サーバ起動例: `mcp-server --config mcp-server.yaml`（PATH に `mcp-server` が無い場合は `MCP_SERVER_CMD` でコマンド名/パスを指定）
   - 例: `./gpt-code -p "MCP経由で'Hello'を送って"`（サーバ実装・tool 名に依存）
   - うまくいかない場合: `[mcp] server/cli not found...` が出力されます。`MCP_SERVER_CMD` / `MCP_CONFIG` を設定し、サーバを導入・起動してください。
+
+12) Impact Scan（新規ツール）
+- 目的: 文字列や正規表現でコードを横断検索し、影響範囲の概観と簡易示唆を返します。必要に応じて該当Pythonファイルに限定した Pyright 診断を実施します（未導入時はスキップ）。
+- 入力(JSON): `{ "query": string, "limit": 100?, "mode": "literal|regex|word", "context": 2?, "pyright"?: {"pythonVersion"?, "venvPath"?, "venv"?} }`
+- 出力(JSON):
+  - `hits: [{path,line,text,context_before?,context_after?}]`
+  - `files_ranked: [{path,score}]`
+  - `suggestions: [string]`
+ - `used: { ripgrep: {mode,context,installed?}, pyright?: {installed?, pythonVersion?, venvPath?, venv?, error?} }`
+- CLIデモ（フォールバックUI）:
+  - `impact <query>` で上位ファイルと示唆を表示します。
+  - files_ranked の `score` は単純に「そのファイル内のヒット件数」です。
 ```
 
 ライセンス: テンプレートは学習用途のサンプルです。各依存ライブラリのライセンスに従ってください。

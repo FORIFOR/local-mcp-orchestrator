@@ -6,7 +6,7 @@ import json
 from typing import Any, Optional
 import argparse
 
-from tools import web_search_run, code_exec_run, tests_run, plan_patch_run, apply_patch_run, ripgrep_search, lsp_python_pyright
+from tools import web_search_run, code_exec_run, tests_run, plan_patch_run, apply_patch_run, ripgrep_search, lsp_python_pyright, impact_scan_run
 from tools.fs_ops import read_file, write_file, append_file, delete_path, list_dir, make_dirs
 from tools.shell_exec import run as shell_run
 from tools.gemini_cli import run as gemini_run
@@ -193,6 +193,7 @@ def _fallback_cli() -> int:
         "  rm <path>              - delete file or empty dir\n"
         "  mkdir <path>           - make directories\n"
         "  sh <command>           - run shell command in project root\n"
+        "  impact <query>         - quick impact scan summary\n"
         "  help                   - show this help\n"
     )
     print(help_text)
@@ -263,6 +264,25 @@ def _fallback_cli() -> int:
                 print(make_dirs(line[6:].strip()))
             elif line.startswith("sh "):
                 print(shell_run(line[3:].strip(), timeout=20))
+            elif line.startswith("impact "):
+                q = line[len("impact "):].strip()
+                payload = {"query": q, "limit": 100, "mode": "literal", "context": 2}
+                import json as _json
+                res = impact_scan_run(_json.dumps(payload))
+                try:
+                    data = _json.loads(res)
+                except Exception:
+                    print(res)
+                    continue
+                ranked = data.get("files_ranked") or []
+                sugg = data.get("suggestions") or []
+                print("[impact] Top files:")
+                for it in ranked[:5]:
+                    print(f"- {it.get('path')} ({it.get('score')})")
+                if sugg:
+                    print("[impact] Suggestions:")
+                    for s in sugg:
+                        print(f"- {s}")
             else:
                 print("[fallback] unknown command. Type 'help'.")
         except Exception as e:
