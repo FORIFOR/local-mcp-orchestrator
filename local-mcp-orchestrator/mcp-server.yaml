@@ -1,0 +1,21 @@
+version: "0.1"
+provider:
+  name: llama_cpp
+  settings:
+    # 共有モデル（単一ファイル）への絶対パス
+    model_path: "/Users/saiteku/.lmstudio/models/lmstudio-community/gpt-oss-20b-GGUF/gpt-oss-20b-MXFP4.gguf"
+    n_ctx: 4096
+    temperature: 0.2
+
+tools:
+  - name: web_search
+    description: "DuckDuckGo を使った簡易Web検索（サンプル）"
+    type: python
+    entrypoint: "tools/web_search.py:run"
+
+  - name: code_exec
+    description: "Python の短いコードを安全に実行（サンプル）"
+    type: python
+    entrypoint: "tools/code_exec.py:run"
+
+# 注意: MCP 実装により設定仕様は異なる可能性があります。本ファイルは概念実装例です。

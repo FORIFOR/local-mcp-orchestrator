@@ -1,0 +1,8 @@
+llama-cpp-python
+langchain
+langchain-community
+prompt_toolkit
+PyYAML
+duckduckgo-search
+requests
+mcp

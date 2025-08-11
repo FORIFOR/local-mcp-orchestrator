@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# gpt-code launcher (CLI UI)
+# - Resolves symlinks to find real project directory
+# - Uses local .venv if available, else python3
+# - Runs gpt_code_agent.py from the project directory
+
+SOURCE=${BASH_SOURCE[0]:-$0}
+while [ -L "$SOURCE" ]; do
+  TARGET=$(readlink "$SOURCE")
+  if [[ "$TARGET" = /* ]]; then
+    SOURCE="$TARGET"
+  else
+    SOURCE="$(dirname "$SOURCE")/$TARGET"
+  fi
+done
+SCRIPT_DIR=$(cd "$(dirname "$SOURCE")" && pwd)
+
+PY="$SCRIPT_DIR/.venv/bin/python"
+if [ ! -x "$PY" ]; then
+  PY="python3"
+fi
+
+exec "$PY" "$SCRIPT_DIR/gpt_code_agent.py" "$@"
