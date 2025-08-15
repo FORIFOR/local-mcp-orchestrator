@@ -407,7 +407,51 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="gpt-code CLI agent")
     parser.add_argument("-p", "--prompt", help="Run once with the provided prompt and exit")
     parser.add_argument("--chat-only", action="store_true", help="Force pure chat (no tools)")
+    sub = parser.add_subparsers(dest="cmd")
+
+    # Direct impact_scan subcommand (no LLM)
+    p_impact = sub.add_parser("impact", help="Run impact_scan directly (no LLM)")
+    p_impact.add_argument("query")
+    p_impact.add_argument("--limit", type=int, default=100)
+    p_impact.add_argument("--mode", choices=["literal", "regex", "word"], default="literal")
+    p_impact.add_argument("--context", type=int, default=2)
+    p_impact.add_argument("--pythonVersion")
+    p_impact.add_argument("--venvPath")
+    p_impact.add_argument("--venv")
+    p_impact.add_argument("--json", action="store_true", help="machine-readable output")
+
     args = parser.parse_args()
+
+    # Handle impact alias before initializing agent/LLM
+    if args.cmd == "impact":
+        import json as _json
+        pry = {k: getattr(args, k) for k in ("pythonVersion", "venvPath", "venv") if getattr(args, k, None)}
+        payload = {
+            "query": args.query,
+            "limit": args.limit,
+            "mode": args.mode,
+            "context": args.context,
+            "pyright": pry or None,
+        }
+        res_text = impact_scan_run(_json.dumps(payload))
+        try:
+            data = _json.loads(res_text)
+        except Exception:
+            print(res_text)
+            return 0
+        if args.json:
+            print(_json.dumps(data, ensure_ascii=False, indent=2))
+            return 0
+        ranked = data.get("files_ranked") or []
+        sugg = data.get("suggestions") or []
+        print("Top files:")
+        for it in ranked[:10]:
+            print(f"  - {it.get('path')}  (score={it.get('score')})")
+        if sugg:
+            print("\nSuggestions:")
+            for s in sugg[:5]:
+                print(f"  - {s}")
+        return 0
 
     agent = _try_build_langchain_agent()
     if agent is None:
