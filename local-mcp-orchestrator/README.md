@@ -250,3 +250,89 @@ python3 -m src.cli_tool divide 1 0   # エラー終了
 ```
 
 ライセンス: テンプレートは学習用途のサンプルです。各依存ライブラリのライセンスに従ってください。
+
+----------------------------------------
+
+詳細ガイド（セットアップ/仕様/トラブルシュート）
+
+0) TL;DR（最短手順）
+- Python 仮想環境を作成し依存を入れる:
+```
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+- モデルリンクを張る（任意）: `bash symlinks.sh`
+- 端末 UI を試す: `python3 gpt_code_agent.py`
+- 影響範囲スキャンを直呼び: `python3 gpt_code_agent.py impact "def" --mode regex --context 2`
+
+1) 概要とアーキテクチャ
+- モード: LangChain + llama_cpp（LLM あり）／フォールバック CLI（LLM なし）
+- コア機能: ファイル編集（Plan/Apply）、検索（ripgrep）、テスト実行、簡易 LSP、外部 CLI 呼び出し
+- 境界: すべての I/O はプロジェクト直下に制限。Shell/CodeExec は時間・出力量が抑制されます。
+
+2) 前提・要件
+- Python 3.9+
+- ripgrep（推奨、impact_scan に必要）: `brew install ripgrep` など
+- pyright（任意、impact_scan の診断用）: `npm i -g pyright`
+- gemini（任意、Web リサーチ用 CLI）
+- MCP サーバ（任意）。環境変数 `MCP_SERVER_CMD` / `MCP_CONFIG` でパス/設定を指定可能。
+
+3) 使い方の詳細
+- 一括ワークフロー:
+  - 「編集を計画（Edit.PlanPatch）→差分を適用（Edit.ApplyPatch）→テスト（Tests.Run）」の反復。
+- 直接 impact_scan を使う（LLM 不要）:
+```
+python3 gpt_code_agent.py impact "<query>" --limit 200 --mode literal --context 2 --json
+```
+  - 返却 JSON には `hits` / `files_ranked` / `suggestions` / `used` が含まれます。
+- REPL ヒント:
+  - `help` でコマンド例を表示。`exit` / `:q` で終了。
+  - `FS.ListAll` に相当するプリントを提供（フォールバック UI 内）。
+
+4) ツール仕様（詳細）
+- Edit.PlanPatch
+  - 入力: `{path, new_content, context?}`
+  - 出力: `{path, base_hash, diff, no_changes?}`
+  - 備考: CRLF/BOM を保持できるよう、計画時のハッシュは raw bytes ベース。
+- Edit.ApplyPatch
+  - 入力: `{"diff","base_hash"?,"path"?}` または RAW diff 文字列
+  - 出力: `[apply_patch] ...` に続き、フッタ JSON（mode/path/hash_after/lines_added/lines_removed/strategy/hunks）
+  - 制約: 単一ファイルのみ。複数は `split per file and re-apply` ヒントを返却。
+  - 競合: `base_hash` で楽観ロック。外部変更時は `conflict`。
+  - 実行ビット: 変更前のモードを保持。
+- Tests.Run
+  - 入力: `auto|pytest|unittest`
+  - 出力: `{"framework","returncode","summary":{"collected","duration_sec","ok"}, ...}`
+- Search.Ripgrep
+  - 除外: `.git,node_modules,.venv,__pycache__,dist,build` を既定除外。
+- LSP.Pyright
+  - `pyright --outputjson` を呼び、診断を抽出。
+- Impact Scan
+  - 入力: `{"query","limit"=100,"mode"="literal|regex|word","context"=2,"pyright"?}`
+  - 出力: `hits / files_ranked(score=ヒット件数) / suggestions / used`（pyright 未導入時は構造化スキップ）
+
+5) セキュリティ/サンドボックス
+- ルート外へのパスは拒否（シンボリックリンクを含むパストラバーサル対策）。
+- Shell/CodeExec は `cwd` をプロジェクトルート固定、`timeout` と出力量制限付き。
+- ネットワーク依存のツール（WebSearch/Gemini）は環境に依存し、失敗時はエラーメッセージまたは空。
+
+6) トラブルシュート（FAQ）
+- Q: `ripgrep not installed` が出る
+  - A: ripgrep を導入してください。導入できない場合、impact_scan はヒット 0/スキップの構造化エラーを返します。
+- Q: `pyright not installed` が出る
+  - A: pyright を導入すると診断が有効になります。未導入でも `used.pyright.installed=false` を返しスキップします。
+- Q: 改行や BOM が壊れる
+  - A: Plan/Apply ともに raw bytes ハッシュ/`newline=''` を用いて改行/BOM を保持します。外部エディタ混在に注意。
+- Q: diff が適用できない / context mismatch
+  - A: 直前に外部変更が入っている可能性。Plan を取り直して再適用してください。
+
+7) 開発メモ
+- テスト: `python3 -m unittest -v`（構造化サマリは `tools/tests.py` 参照）
+- 重要ファイル:
+  - `tools/edit/plan_patch.py` / `tools/edit/apply_patch.py`
+  - `tools/impact_scan.py` / `tools/index/ripgrep.py` / `tools/lsp/diagnostics.py`
+  - `gpt_code_agent.py`（エージェント/フォールバック CLI、impact サブコマンド）
+
+8) 変更履歴とライセンス
+- 変更履歴: `CHANGELOG.md` を参照。
+- ライセンス: 本テンプレートは学習用途のサンプルです。各依存ライブラリのライセンスに従ってください。
