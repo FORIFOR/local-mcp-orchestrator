@@ -1,0 +1,18 @@
+{
+  "repo": "FORIFOR/local-mcp-orchestrator",
+  "branch": "main",
+  "tree_sha": "cefa77a42b636b338ddabce6b05eeed214acb8a0",
+  "tree_files": 65,
+  "read_files": [
+    {
+      "path": "local-mcp-orchestrator/tools/gemini_cli.py",
+      "sha": "5d794a407e6f35ec9e121b790564d52ff960c635"
+    },
+    {
+      "path": "local-mcp-orchestrator/utils/mcp_client.py",
+      "sha": "8e514762044d13fdd287a2066d60d9cfe2a3a78c"
+    }
+  ],
+  "not_read_count": 63,
+  "scope": "initial entry-point and direct-import analysis; not exhaustive semantic scan"
+}
